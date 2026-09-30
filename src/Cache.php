@@ -17,10 +17,10 @@ use usualtool\Lib\Temp;
  * 缓存/编译
  */
 class Cache{
-    private static $dirswritten=[];
-    private static $failall=[];
+    private static $dirsWritten=[];
+    private static $failAll=[];
     /**
-     * 解析参数
+     * 选项解析
      * @param array $args 形如 ['--dry','--mod=guestbook']
      * @return array
      */
@@ -48,15 +48,15 @@ class Cache{
         return $opt;
     }
     /**
-     * 全量重建缓存
+     * 全量重建模板缓存
      * @param array $args 命令行参数，如 ['--dry','--mod=guestbook']
      * @return int
      */
     public static function Rebuild($args=[]){
         $opt=self::Args($args);
         if($opt===null){ return 1; }
-        self::$dirswritten=[];
-        self::$failall=[];
+        self::$dirsWritten=[];
+        self::$failAll=[];
         $config=self::Boot();
         $forms=['front','admin'];
         $mods=self::Modules($opt['mod']);
@@ -73,7 +73,6 @@ class Cache{
                 $tpls=glob($tempdir.'/*.cms')?:[];
                 if(!$tpls){ continue; }
                 sort($tpls);
-
                 $app=new Temp(0,$tempdir,$cachedir);
                 $app->Runin(
                     ['appname','appurl','module','page','lang','thelang','pubtemp','template'],
@@ -89,36 +88,32 @@ class Cache{
                     $name=basename($tpl);
                     $src=file_get_contents($tpl);
                     $sum['tpl']++;
-                    $missing=self::IncludeMissing($src,$form,$config);
                     try{
                         $out=$app->TempReplace($src);
                     }catch(\Throwable $e){
                         $stat['fail']++; $sum['fail']++;
-                        self::$failall[]="{$m}/{$form}/{$name}: ".$e->getMessage();
+                        self::$failAll[]="{$m}/{$form}/{$name}: ".$e->getMessage();
                         continue;
                     }
                     if(preg_match('/<\{[^(\}>)]{1,}\}>/',$out,$mm)){
                         $warns[]="{$name} 残留未编译标签 ".$mm[0];
-                    }
-                    foreach($missing as $ms){
-                        $warns[]="{$name} include 目标不存在 → {$ms}（产物会缺这块内容）";
                     }
                     $cacheFile=$cachedir.'/cache_'.$name;
                     $old=is_file($cacheFile)?file_get_contents($cacheFile):null;
                     if($old===$out){ $stat['skip']++; $sum['skip']++; continue; }
                     if($opt['dry']){
                         $stat['built']++; $sum['built']++;
-                        self::$dirswritten[$cachedir]=true;
+                        self::$dirsWritten[$cachedir]=true;
                         continue;
                     }
                     Inc::MakeDir($cachedir);
                     if(file_put_contents($cacheFile,$out)===false){
                         $stat['fail']++; $sum['fail']++;
-                        self::$failall[]="{$m}/{$form}/{$name}: 写入失败（权限？）";
+                        self::$failAll[]="{$m}/{$form}/{$name}: 写入失败（权限？）";
                         continue;
                     }
                     $stat['built']++; $sum['built']++;
-                    self::$dirswritten[$cachedir]=true;
+                    self::$dirsWritten[$cachedir]=true;
                 }
                 self::Out(sprintf('· %-14s %-5s 模板 %2d → 重建 %2d，无变化 %2d，失败 %d',
                     $m,$form,count($tpls),$stat['built'],$stat['skip'],$stat['fail']));
@@ -127,18 +122,18 @@ class Cache{
         }
         self::Out('');
         self::Out("合计：模板 {$sum['tpl']}，重建 {$sum['built']}，无变化 {$sum['skip']}，失败 {$sum['fail']}，警告 {$sum['warn']}");
-        foreach(self::$failall as $f){ self::Out('  失败：'.$f); }
-        if(self::$dirswritten && PHP_OS_FAMILY!=='Windows'){
+        foreach(self::$failAll as $f){ self::Out('  失败：'.$f); }
+        if(self::$dirsWritten && PHP_OS_FAMILY!=='Windows'){
             self::Out('提示：以 root 执行会把缓存属主改为 root，若 Web 以 www 用户运行请执行：');
-            self::Out('  chown -R www:www '.implode(' ',array_keys(self::$dirswritten)));
+            self::Out('  chown -R www:www '.implode(' ',array_keys(self::$dirsWritten)));
         }
         return $sum['fail']>0?1:0;
     }
     public static function Help(){
-        self::Out('php usualtool cache 重建整站缓存');
-        self::Out('php usualtool cache [--mod=xxx] 重建指定模块缓存');
-        self::Out('php usualtool cache [--dry] 预演只编译');
-        self::Out('php usualtool cache [help] 缓存命令帮助');
+        self::Out('php usualtool cache rebuild 重建整站缓存');
+        self::Out('php usualtool cache rebuild [--mod=xxx] 重建指定模块缓存');
+        self::Out('php usualtool cache rebuild [--dry] 预演只编译');
+        self::Out('php usualtool cache help 缓存命令帮助');
     }
     /**
      * 载入框架配置并确保公共常量就绪
@@ -164,7 +159,7 @@ class Cache{
     }
     /**
      * 解析某模块某端的模板目录与缓存目录
-     * @return array [模板目录, 缓存目录]
+     * @return array
      */
     private static function Paths($m,$form,$config){
         $deve=($form==='admin');
@@ -190,28 +185,6 @@ class Cache{
         }
         sort($mods);
         return $mods;
-    }
-    /**
-     * 检测源模板中 <{include}> 目标是否存在
-     * @return array
-     */
-    private static function IncludeMissing($src,$form,$config){
-        $miss=[];
-        if(!preg_match_all('/<\{\s*include\s+["\'](.+?)["\']?\s*\}>/i',$src,$mm)){ return $miss; }
-        $work=APP_ROOT.'/template/'.($form==='admin'?$config['TEMPADMIN']:$config['TEMPFRONT']);
-        $map=[
-            '$pubtemp' =>PUB_TEMP.'/'.$form,
-            '$template'=>$work.'/skin/'.$config['DEFAULT_MOD'].'/'.$form,
-        ];
-        foreach($mm[1] as $inc){
-            $path=strtr($inc,$map);
-            if(strpos($path,'$')!==false){ continue; }
-            if(strpos($path,'/')!==0 && !preg_match('#^[A-Za-z]:#',$path)){
-                $path=PUB_TEMP.'/'.$form.'/'.ltrim($path,'./');
-            }
-            if(!is_file($path)){ $miss[]=$inc; }
-        }
-        return $miss;
     }
     private static function Out($msg=''){
         echo $msg."\n";

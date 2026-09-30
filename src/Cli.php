@@ -610,10 +610,10 @@ class Cli{
         echo"php usualtool install module [name] [1/2/3] 安装模块\r\n";
         echo"php usualtool install plugin [name] [1/2/3] 安装插件\r\n";
         echo"php usualtool install template [name] [1/2/3] 安装整站模板工程\r\n";
-        echo"php usualtool cache [rebuild] 重建整站缓存\r\n";
-        echo"php usualtool cache [rebuild] [--mod=xxx] 重建指定模块缓存\r\n";
-        echo"php usualtool cache [rebuild] [--dry] 预演只编译\r\n";
-        echo"php usualtool cache [help] 缓存帮助\r\n";
+        echo"php usualtool cache rebuild 重建整站缓存\r\n";
+        echo"php usualtool cache rebuild [--mod=xxx] 重建指定模块缓存\r\n";
+        echo"php usualtool cache rebuild [--dry] 预演只编译\r\n";
+        echo"php usualtool cache help 缓存帮助\r\n";
         echo"php usualtool swoole [name] [host] [port] ... swoole协程命令\r\n";
         echo"php usualtool kafka [host] [topic] kafka命令\r\n";
         echo"php usualtool workerman [start/reload/stop/restart] [host] ... workerman命令\r\n";
