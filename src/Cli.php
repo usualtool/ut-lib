@@ -408,7 +408,7 @@ class Cli{
      * @return string
      */
     public static function Swoole($array){
-        require_once UTF_ROOT.'/'.'vendor/autoload.php';
+        require_once UTF_ROOT.'/'.'vendor/bootstrap.php';
         if(count($array)>2){
             $server=$array[2];
             $host=$array[3];
@@ -436,7 +436,7 @@ class Cli{
      * @return string
      */
     public static function Workerman($array){
-        require_once UTF_ROOT.'/'.'vendor/autoload.php';
+        require_once UTF_ROOT.'/'.'vendor/bootstrap.php';
         $server=$array[2];
             if($server=="start"){
                 if(in_array('-d',$array)){
