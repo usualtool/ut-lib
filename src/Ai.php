@@ -1,18 +1,73 @@
 <?php
 namespace usualtool\Lib;
+use usualtool\Ai\Ai as UAi;
 /**
- * AI对话
- * 必要依赖：composer require usualtool/ut-ai
+ * AI对话配置读写
+ * 依赖：composer require usualtool/ut-ai
  */
 class Ai{
     public static $tty="UTF-8";
     public static $pending="";
+    public static $prompt=null;
     public static function EnvFile(){
         $rootfile=UTF_ROOT."/.ut-ai.env";
         if(file_exists($rootfile)){
             return $rootfile;
         }
         return UTF_ROOT."/vendor/usualtool/ut-ai/src/.env";
+    }
+    /**
+     * 读取配置
+     * @return array
+     */
+    public static function EnvAll(){
+        $env=array();
+        $files=array(UTF_ROOT."/vendor/usualtool/ut-ai/src/.env",UTF_ROOT."/.ut-ai.env");
+        foreach($files as $file){
+            if(!file_exists($file)){
+                continue;
+            }
+            $lines=file($file,FILE_IGNORE_NEW_LINES|FILE_SKIP_EMPTY_LINES);
+            foreach($lines as $line){
+                $line=trim($line);
+                if($line==="" || strpos($line,"#")===0 || strpos($line,"=")===false){
+                    continue;
+                }
+                $pair=explode("=",$line,2);
+                $key=trim($pair[0]);
+                $val=trim($pair[1]);
+                if($key==="" || $val===""){
+                    continue;
+                }
+                $env[$key]=$val;
+            }
+        }
+        return $env;
+    }
+    public static function Config(){
+        $env=self::EnvAll();
+        $models=isset($env["ALLOWED_MODELS"])?array_values(array_filter(array_map("trim",explode(",",$env["ALLOWED_MODELS"])),'strlen')):array();
+        if(empty($models)){
+            $models=array("glm-4-flash","deepseek-chat","qwen-turbo");
+        }
+        return array(
+            "upstream_base_url"=>$env["UPSTREAM_BASE_URL"]??"",
+            "upstream_api_key"=>$env["UPSTREAM_API_KEY"]??"",
+            "my_api_key"=>$env["MY_API_KEY"]??"",
+            "allowed_models"=>$models,
+            "index_model"=>$env["INDEX_MODEL"]??"",
+            "system_prompt"=>$env["SYSTEM_PROMPT"]??"",
+            "enable_thinking"=>!empty($env["ENABLE_THINKING"]),
+            "knowledge_enabled"=>!empty($env["KNOWLEDGE_ENABLED"]),
+            "knowledge_base_url"=>$env["KNOWLEDGE_BASE_URL"]??"",
+            "knowledge_api_key"=>$env["KNOWLEDGE_API_KEY"]??"",
+            "knowledge_base_ids"=>isset($env["KNOWLEDGE_BASE_IDS"])?array_values(array_filter(array_map("trim",explode(",",$env["KNOWLEDGE_BASE_IDS"])),'strlen')):array(),
+            "knowledge_top_k"=>(int)($env["KNOWLEDGE_TOP_K"]??8),
+            "knowledge_top_n"=>(int)($env["KNOWLEDGE_TOP_N"]??5),
+            "knowledge_enable_rerank"=>!empty($env["KNOWLEDGE_ENABLE_RERANK"]),
+            "knowledge_model"=>$env["KNOWLEDGE_MODEL"]??"",
+            "knowledge_enable_thinking"=>!empty($env["KNOWLEDGE_ENABLE_THINKING"])
+        );
     }
     /**
      * 写入配置
@@ -69,7 +124,7 @@ class Ai{
         return file_put_contents($file,implode($eol,$lines))!==false;
     }
     /**
-     * 将模型加入白名单
+     * 将模型加入ALLOWED_MODELS白名单
      * @param string $file
      * @param string $model
      * @return bool
@@ -84,37 +139,9 @@ class Ai{
         return self::EnvSet($file,"ALLOWED_MODELS",implode(",",array_values(array_unique($models))));
     }
     /**
-     * 获取UT-AI配置
-     * @return array
-     */
-    public static function EnvAll(){
-        $env=array();
-        $files=array(UTF_ROOT."/vendor/usualtool/ut-ai/src/.env",UTF_ROOT."/.ut-ai.env");
-        foreach($files as $file){
-            if(!file_exists($file)){
-                continue;
-            }
-            $lines=file($file,FILE_IGNORE_NEW_LINES|FILE_SKIP_EMPTY_LINES);
-            foreach($lines as $line){
-                $line=trim($line);
-                if($line==="" || strpos($line,"#")===0 || strpos($line,"=")===false){
-                    continue;
-                }
-                $pair=explode("=",$line,2);
-                $key=trim($pair[0]);
-                $val=trim($pair[1]);
-                if($key==="" || $val===""){
-                    continue;
-                }
-                $env[$key]=$val;
-            }
-        }
-        return $env;
-    }
-    /**
-     * 校验UT-AI配置
+     * 校验配置
      * @param array $env
-     * @return array 缺失的配置项名称
+     * @return array
      */
     public static function EnvMissing($env){
         $need=array("UPSTREAM_BASE_URL","UPSTREAM_API_KEY","INDEX_MODEL","ALLOWED_MODELS");
@@ -130,146 +157,76 @@ class Ai{
         return $missing;
     }
     /**
-     * 输出UT-AI配置
+     * 发起请求时实际使用的配置
      * @return array
      */
-    public static function Config(){
-        $env=self::EnvAll();
-        $models=isset($env["ALLOWED_MODELS"])?array_values(array_filter(array_map("trim",explode(",",$env["ALLOWED_MODELS"])),'strlen')):array();
-        if(empty($models)){
-            $models=array("glm-4-flash","deepseek-chat","qwen-turbo");
+    private static function RunConfig(){
+        $config=self::Config();
+        if(self::$prompt!==null){
+            $config["system_prompt"]=self::$prompt;
         }
+        return $config;
+    }
+    /**
+     * 取一轮回答
+     * @param array $messages
+     * @param string $model
+     * @return array
+     */
+    public static function Fetch($messages,$model){
+        $fail=array("content"=>"","reasoning"=>"","usage"=>array(),"error"=>"");
+        $ai=new UAi(self::RunConfig());
+        $json=$ai->Chat(array_values($messages),$model,false);
+        if(!is_string($json) || $json===""){
+            $fail["error"]="上游返回为空";
+            return $fail;
+        }
+        $data=json_decode($json,true);
+        if(!is_array($data)){
+            $fail["error"]="上游返回无法解析：".substr($json,0,300);
+            return $fail;
+        }
+        if(isset($data["error"])){
+            $e=$data["error"];
+            $fail["error"]=is_array($e)?(isset($e["message"])?$e["message"]:json_encode($e,JSON_UNESCAPED_UNICODE)):(string)$e;
+            return $fail;
+        }
+        $msg=isset($data["choices"][0]["message"])&&is_array($data["choices"][0]["message"])?$data["choices"][0]["message"]:array();
         return array(
-            "upstream_base_url"=>$env["UPSTREAM_BASE_URL"]??"",
-            "upstream_api_key"=>$env["UPSTREAM_API_KEY"]??"",
-            "my_api_key"=>$env["MY_API_KEY"]??"",
-            "allowed_models"=>$models,
-            "index_model"=>$env["INDEX_MODEL"]??"",
-            "enable_thinking"=>!empty($env["ENABLE_THINKING"]),
-            "knowledge_enabled"=>!empty($env["KNOWLEDGE_ENABLED"]),
-            "knowledge_base_url"=>$env["KNOWLEDGE_BASE_URL"]??"",
-            "knowledge_api_key"=>$env["KNOWLEDGE_API_KEY"]??"",
-            "knowledge_base_ids"=>isset($env["KNOWLEDGE_BASE_IDS"])?array_values(array_filter(array_map("trim",explode(",",$env["KNOWLEDGE_BASE_IDS"])),'strlen')):array(),
-            "knowledge_top_k"=>(int)($env["KNOWLEDGE_TOP_K"]??8),
-            "knowledge_top_n"=>(int)($env["KNOWLEDGE_TOP_N"]??5),
-            "knowledge_enable_rerank"=>!empty($env["KNOWLEDGE_ENABLE_RERANK"]),
-            "knowledge_model"=>$env["KNOWLEDGE_MODEL"]??"",
-            "knowledge_enable_thinking"=>!empty($env["KNOWLEDGE_ENABLE_THINKING"])
+            "content"=>isset($msg["content"])?(string)$msg["content"]:"",
+            "reasoning"=>isset($msg["reasoning_content"])?(string)$msg["reasoning_content"]:"",
+            "usage"=>isset($data["usage"])&&is_array($data["usage"])?$data["usage"]:array(),
+            "error"=>""
         );
     }
     /**
-     * 流式对话
-     * @param array $messages
+     * 流式问答
+     * @param array $messages 上下文
      * @param string $model
      * @param callable $callback
      * @return void
      */
     public static function Stream($messages,$model,$callback){
-        $config=self::Config();
-        $useKnowledge=$config["knowledge_enabled"] && $config["knowledge_base_url"]!=="" && !empty($config["knowledge_base_ids"]);
-        if($useKnowledge){
-            $model=$config["knowledge_model"]!==""?$config["knowledge_model"]:$model;
-            $url=rtrim($config["knowledge_base_url"],"/")."/chat";
-            $apikey=$config["knowledge_api_key"]!==""?$config["knowledge_api_key"]:$config["upstream_api_key"];
-            $body=array(
-                "model"=>$model,
-                "messages"=>array_values($messages),
-                "stream"=>true,
-                "enable_thinking"=>$config["knowledge_enable_thinking"],
-                "retrieval"=>array(
-                    "know_ids"=>$config["knowledge_base_ids"],
-                    "top_k"=>$config["knowledge_top_k"],
-                    "top_n"=>$config["knowledge_top_n"],
-                    "enable_rerank"=>$config["knowledge_enable_rerank"]
-                )
-            );
+        $ai=new UAi(self::RunConfig());
+        if(method_exists($ai,"Cli")){
+            $ai->Cli(array_values($messages),$model,$callback);
+            return;
+        }
+        $res=self::Fetch($messages,$model);
+        if($res["error"]!==""){
+            call_user_func($callback,"error",$res["error"],array());
         }else{
-            $url=rtrim($config["upstream_base_url"],"/")."/chat/completions";
-            $apikey=$config["upstream_api_key"];
-            $body=array(
-                "model"=>$model,
-                "messages"=>array_values($messages),
-                "stream"=>true,
-                "thinking"=>array("type"=>$config["enable_thinking"]?"enabled":"disabled")
-            );
-        }
-        if($url==="" || $apikey===""){
-            $callback("error","上游地址或密钥为空，请检查配置",array());
-            $callback("done","",array());
-            return;
-        }
-        $payload=json_encode($body,JSON_UNESCAPED_UNICODE);
-        if($payload===false){
-            $callback("error","请求体编码失败（".json_last_error_msg()."），跳过本次请求以免上游收到空body",array());
-            $callback("done","",array());
-            return;
-        }
-        $buffer="";
-        $plain="";
-        $usage=array();
-        $ch=curl_init($url);
-        curl_setopt_array($ch,array(
-            CURLOPT_POST=>true,
-            CURLOPT_POSTFIELDS=>$payload,
-            CURLOPT_HTTPHEADER=>array(
-                "Content-Type: application/json",
-                "Accept: text/event-stream",
-                "Authorization: Bearer ".$apikey
-            ),
-            CURLOPT_TIMEOUT=>300,
-            CURLOPT_WRITEFUNCTION=>function($ch,$chunk) use (&$buffer,&$plain,&$usage,$callback){
-                if(strlen($plain)<2000){
-                    $plain.=$chunk;
-                }
-                $buffer.=$chunk;
-                while(($pos=strpos($buffer,"\n"))!==false){
-                    $line=rtrim(substr($buffer,0,$pos),"\r");
-                    $buffer=substr($buffer,$pos+1);
-                    $line=trim($line);
-                    if($line==="" || strpos($line,"data:")!==0){
-                        continue;
-                    }
-                    $raw=trim(substr($line,5));
-                    if($raw==="" || $raw==="[DONE]"){
-                        continue;
-                    }
-                    $event=json_decode($raw,true);
-                    if(!is_array($event)){
-                        continue;
-                    }
-                    if(isset($event["error"])){
-                        $msg=is_array($event["error"])?(isset($event["error"]["message"])?$event["error"]["message"]:$raw):$raw;
-                        $callback("error",$msg,array());
-                        continue;
-                    }
-                    if(isset($event["usage"])){
-                        $usage=$event["usage"];
-                    }
-                    $delta=isset($event["choices"][0]["delta"])?$event["choices"][0]["delta"]:array();
-                    if(isset($delta["reasoning_content"]) && $delta["reasoning_content"]!==""){
-                        $callback("reasoning",$delta["reasoning_content"],array());
-                    }
-                    if(isset($delta["content"]) && $delta["content"]!==""){
-                        $callback("content",$delta["content"],array());
-                    }
-                }
-                return strlen($chunk);
+            if($res["reasoning"]!==""){
+                call_user_func($callback,"reasoning",$res["reasoning"],array());
             }
-        ));
-        curl_exec($ch);
-        $error=curl_error($ch);
-        $httpcode=(int)curl_getinfo($ch,CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        $trimmed=ltrim($plain);
-        if($error!==""){
-            $callback("error","上游请求失败：".$error,array());
-        }elseif(trim($plain)!=="" && strpos($trimmed,"data:")!==0){
-            $callback("error","上游返回 HTTP ".$httpcode."：".trim($plain),array());
+            if($res["content"]!==""){
+                call_user_func($callback,"content",$res["content"],array());
+            }
         }
-        $callback("done","",$usage);
+        call_user_func($callback,"done","",$res["usage"]);
     }
     /**
-     * 清洗
+     * 输入清洗
      * @param string $line
      * @return string
      */
@@ -282,8 +239,8 @@ class Ai{
         return trim($line);
     }
     /**
-     * 终端编码
-     * @return string
+     * 终端编码推断
+     * @return string UTF-8 或 GBK
      */
     public static function TtyEncoding(){
         $force=strtolower(trim((string)getenv("UT_AI_ENCODING")));
@@ -306,7 +263,7 @@ class Ai{
         return "UTF-8";
     }
     /**
-     * 安全转码字节长度
+     * 可安全转码的字节长度
      * @param string $s
      * @return int
      */
@@ -355,7 +312,7 @@ class Ai{
                 if($text!==""){
                     echo function_exists("mb_convert_encoding")?mb_convert_encoding($text,"GBK","UTF-8"):$text;
                 }
-            };
+            }
             if(ob_get_level()>0){
                 @ob_flush();
             }
@@ -376,8 +333,10 @@ class Ai{
     public static function Command($line,$config,&$messages,&$model,&$tokens,$echo){
         $lower=strtolower($line);
         if($lower==="/help"){
-            $echo("/new 清空上下文\r\n  /model [名称] 查看或临时切换模型\r\n  /enc [编码] 查看或切换输出编码\r\n  /usage 查看token用量\r\n  /exit 退出\r\n");
+            $echo("/new 清空上下文  /model [名称] 查看或临时切换模型  /enc [编码] 查看或切换输出编码\r\n");
+            $echo("/system [文本] 查看或临时设置提示词  /usage 查看token用量  /exit 退出\r\n");
             $echo("永久更换默认模型：退出后执行 php usualtool ai 模型名\r\n");
+            $echo("永久设置提示词：在 .env 中配置 SYSTEM_PROMPT\r\n");
             return true;
         }
         if($lower==="/enc" || strpos($lower,"/enc ")===0){
@@ -424,15 +383,43 @@ class Ai{
             }
             return true;
         }
+        if($lower==="/system" || strpos($lower,"/system ")===0){
+            $arg=trim(substr($line,7));
+            $conf=isset($config["system_prompt"])?(string)$config["system_prompt"]:"";
+            $show=function($text) use ($echo){
+                $echo("  ".str_replace(array("\r\n","\n"),"\r\n  ",$text)."\r\n");
+            };
+            if($arg===""){
+                $now=self::$prompt!==null?self::$prompt:$conf;
+                if($now===""){
+                    $echo("当前没有提示词（配置项 SYSTEM_PROMPT 为空）\r\n");
+                }else{
+                    $echo("当前提示词（".(self::$prompt!==null?"本会话临时":"配置项 SYSTEM_PROMPT")."）：\r\n");
+                    $show($now);
+                }
+                $echo("用法：/system 查看，/system 文本 临时设置，/system clear 本会话禁用，/system reset 恢复配置\r\n");
+            }elseif(strtolower($arg)==="clear"){
+                self::$prompt="";
+                $echo("本会话已禁用提示词\r\n");
+            }elseif(strtolower($arg)==="reset"){
+                self::$prompt=null;
+                $echo("已恢复使用配置项 SYSTEM_PROMPT\r\n");
+            }else{
+                self::$prompt=$arg;
+                $echo("本会话提示词已设置（仅本次会话生效）：\r\n");
+                $show($arg);
+            }
+            return true;
+        }
         return false;
     }
     /**
-     * 一轮流式问答
+     * 一轮问答
      * @param array $messages 上下文（含本次提问）
      * @param string $model
      * @param array $tokens token统计（按引用累加）
      * @param callable $echo 输出函数
-     * @return string 助手回复
+     * @return string
      */
     public static function Ask($messages,$model,&$tokens,$echo){
         $reply="";
