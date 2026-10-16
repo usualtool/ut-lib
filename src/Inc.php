@@ -1255,7 +1255,7 @@ class Inc{
      */
     public static function Robot(){
         $config=self::GetConfig();
-        $robot=self::HttpGet($config["UTFURL"]."?AuthCode=".$config["UTCODE"]."&FromUrl=".self::CurPageUrl()."&Type=robot");
+        $robot=self::HttpPost($config["UTFURL"],"AuthCode=".$config["UTCODE"]."&FromUrl=".self::CurPageUrl()."&Type=robot");
         echo self::StrSubstr("<robot-code>","</robot-code>",$robot);
     }
 }
