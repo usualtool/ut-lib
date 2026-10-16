@@ -78,13 +78,6 @@ class Route{
                 $p = $segments[1];
             }
         }
-        $route = OPEN_ROOT.'/route.php';
-        if (file_exists($route)) {
-            $map = include $route;
-            if (is_array($map) && isset($map[$m])) {
-                $m = $map[$m];
-            }
-        }
         $param['m'] = $m;
         $param['p'] = $p;
         if(!empty($_SERVER['QUERY_STRING'])){
@@ -92,7 +85,31 @@ class Route{
             parse_str($cleanQuery,$queryParams);
             $param=array_merge($param,$queryParams);
         }
+        $param['m'] = self::Module($param['m']);
         return $param;
+    }
+    public static function Map($file){
+        if (file_exists($file)) {
+            $map = include $file;
+            if (is_array($map)) {
+                return $map;
+            }
+        }
+        return array();
+    }
+    public static function Module($m){
+        $map = self::Map(OPEN_ROOT.'/route.php');
+        if (is_string($m) && isset($map[$m])) {
+            return $map[$m];
+        }
+        return $m;
+    }
+    public static function Page($modpath, $form, $page){
+        $map = self::Map($modpath."/route.php");
+        if (is_string($page) && isset($map[$page])) {
+            $page = $map[$page];
+        }
+        return $modpath."/".$form."/".$page.".php";
     }
     /**
      * 编制路由
