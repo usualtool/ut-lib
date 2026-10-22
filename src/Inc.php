@@ -779,6 +779,14 @@ class Inc{
         return $pageURL;
     }
     /**
+     * 是否首页
+     */
+    public static function IsHome(){
+        $config=self::GetConfig();
+        $index=$config["DEFAULT_MOD"] ?? "";
+        return $index!=="" && (Route::Analy(self::CurPageUrl())["m"] ?? "")===$index;
+    }
+    /**
      * 获取模板末尾节点标识
      * @return string admin即后端，front即前端
      * UT7.0后逐步废弃
