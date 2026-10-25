@@ -305,7 +305,7 @@ class Inc{
               }
             }
         }elseif($type==1){
-            $modules=self::Auth($config["UTCODE"],$config["UTFURL"],"module");
+            $modules=self::Auth("module");
             preg_match_all("/\<module\>(.*?)\<\/module\>/s",$modules,$moduleblocks);
             foreach($moduleblocks[1] as $module){
                 preg_match_all("/\<mid\>(.*?)\<\/mid\>/",$module,$mid);
@@ -315,7 +315,7 @@ class Inc{
                 $mod[]=array("mid"=>$mid[1][0],"catid"=>$catid[1][0],"title"=>$title[1][0],"isfree"=>$isfree[1][0]);
             }
         }elseif($type==2){
-            $modules=self::Auth($config["UTCODE"],$config["UTFURL"],"moduleorder");
+            $modules=self::Auth("moduleorder");
             preg_match_all("/\<module\>(.*?)\<\/module\>/s",$modules,$moduleblocks);
             foreach($moduleblocks[1] as $module){
                 preg_match_all("/\<moduleid\>(.*?)\<\/moduleid\>/",$module,$moduleid); 
@@ -354,7 +354,7 @@ class Inc{
               }
             }
         }elseif($type==1){
-            $hooks=self::Auth($config["UTCODE"],$config["UTFURL"],"plugin");
+            $hooks=self::Auth("plugin");
             preg_match_all( "/\<hook\>(.*?)\<\/hook\>/s",$hooks,$hookblocks);
             foreach($hookblocks[1] as $hook){
                 preg_match_all("/\<pid\>(.*?)\<\/pid\>/",$hook,$pid);  
@@ -366,7 +366,7 @@ class Inc{
                 $plugin[]=array("pid"=>$pid[1][0],"type"=>$type[1][0],"title"=>$title[1][0],"picurl"=>$picurl[1][0],"ver"=>$ver[1][0],"isfree"=>$isfree[1][0]);
             }
         }elseif($type==2){
-            $hooks=self::Auth($config["UTCODE"],$config["UTFURL"],"pluginorder");
+            $hooks=self::Auth("pluginorder");
             preg_match_all("/\<hook\>(.*?)\<\/hook\>/s",$hooks,$hookblocks);
             foreach($hookblocks[1] as $hook){
                 preg_match_all("/\<hookid\>(.*?)\<\/hookid\>/",$hook,$hookid);  
@@ -405,7 +405,7 @@ class Inc{
                 }
             }
         }elseif($type==1){
-            $temps=self::Auth($config["UTCODE"],$config["UTFURL"],"temp");
+            $temps=self::Auth("temp");
             preg_match_all( "/\<temp\>(.*?)\<\/temp\>/s",$temps,$tempblocks);
             foreach($tempblocks[1] as $temp){
                 preg_match_all("/\<tid\>(.*?)\<\/tid\>/",$temp,$tid);
@@ -417,7 +417,7 @@ class Inc{
                 $template[]=array("tid"=>$tid[1][0],"title"=>$title[1][0],"picurl"=>$picurl[1][0],"module"=>$module[1][0],"lang"=>$lang[1][0],"isfree"=>$isfree[1][0]);
             }
         }elseif($type==2){
-            $temps=self::Auth($config["UTCODE"],$config["UTFURL"],"temporder");
+            $temps=self::Auth("temporder");
             preg_match_all("/\<temp\>(.*?)\<\/temp\>/s",$temps,$tempblocks);
             foreach($tempblocks[1] as $temp){
                 preg_match_all("/\<orderid\>(.*?)\<\/orderid\>/",$temp,$orderid);  
