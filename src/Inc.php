@@ -58,6 +58,11 @@ class Inc{
                 echo'<script>window.location.reload();</script>';
                 exit();
             }else{
+                $url=str_replace(array("\r","\n"),"",$url);
+                if(!headers_sent()){
+                    header("Location: ".$url);
+                    exit();
+                }
                 echo'<script>window.location.href="'.$url.'"</script>';
                 exit();
             }
