@@ -512,16 +512,32 @@ class Inc{
         return null;
     }
     /**
-     * UT令牌验证
-     * @param string $authcode UT令牌
-     * @param string $authurl 验证通讯地址
-     * @param string $apitype API接口类型
-     * @return string 获得一个XML文件
+     * UT通讯
+     * @param string $api 接口类型
+     * @return string 获得一个类XML文件
      */
-    public static function Auth($authcode,$authurl,$apitype){
-        $fromurl=self::CurPageUrl();
-        $content=self::HttpPost($authurl,"AuthCode=".$authcode."&FromUrl=".$fromurl."&Type=".$apitype);
-        return str_replace("#","$",str_replace("&","=",self::StrSubstr("<php>","</php>",$content)));
+    public static function Auth($api){
+        $config=self::GetConfig();
+        $file=UTF_ROOT."/log/auth/".$api.".log";
+        if(is_file($file) && (time()-filemtime($file))<86400){
+            $content=file_get_contents($file);
+        }else{
+            if(!is_dir(UTF_ROOT."/log/auth")){
+                self::MakeDir(UTF_ROOT."/log/auth/");
+            }
+            $content=self::HttpPost($config["UTFURL"],"AuthCode=".$config["UTCODE"]."&FromUrl=".self::CurPageUrl()."&Type=".$api);
+            if($content===false || $content===null){
+                $content="";
+            }
+            if($api=="robot"){
+                $content=self::StrSubstr("<robot-code>","</robot-code>",$content);
+            }else{
+                $content=self::StrSubstr("<php>","</php>",$content);
+                $content=str_replace("#","$",str_replace("&","=",$content));
+            }
+            file_put_contents($file,$content,LOCK_EX);
+        }
+        return $content;
     }
     /**
      * 生成随机字符串
@@ -1267,8 +1283,6 @@ class Inc{
      * @param string
      */
     public static function Robot(){
-        $config=self::GetConfig();
-        $robot=self::HttpPost($config["UTFURL"],"AuthCode=".$config["UTCODE"]."&FromUrl=".self::CurPageUrl()."&Type=robot");
-        echo self::StrSubstr("<robot-code>","</robot-code>",$robot);
+        echo self::Auth("robot");
     }
 }
