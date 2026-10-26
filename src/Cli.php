@@ -492,7 +492,7 @@ class Cli{
                         $c=0;
                         for($k=0;$k<$total;$k++){
                             if(trim($arr[$k])===""){continue;}
-                            if(!UTData::RunSql($arr[$k])){
+                            if(!Data::RunSql($arr[$k])){
                                 $c=$c+1;
                                 echo "第".($k+1)."条SQL执行失败\r\n";
                             }
