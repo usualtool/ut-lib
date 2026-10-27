@@ -192,11 +192,16 @@ class Temp{
             },
             $content
         );
-        $repcontent=preg_replace($pattern,$replacement,$content);
-        if(preg_match('/<\{([^(\}>)]{1,})\}>/',$repcontent)){
-            $repcontent=$this->TempReplace($repcontent);
+        $req=preg_replace($pattern,$replacement,$content);
+        if(preg_match('/<\{([^(\}>)]{1,})\}>/',$req)){
+            static $depth=0;
+            if($depth<10){
+                $depth++;
+                $req=$this->TempReplace($req);
+                $depth--;
+            }
         }
-        return $repcontent;
+        return $req;
     }
     /**
      * 标签转换
