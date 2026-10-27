@@ -186,11 +186,6 @@ class Spider{
                         }else{
                             $result[$done_url] = $this->http_data[$done_url]['data']; 
                         }
-                        if(PHP_VERSION_ID>=80000){
-                            unset($done['handle']);
-                        }else{
-                            curl_close($done['handle']);
-                        }
                         curl_multi_remove_handle($mh, $done['handle']);
                         unset($listener_list[$done_url],$listener);
                         $done_num++;
