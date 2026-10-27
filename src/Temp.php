@@ -157,7 +157,7 @@ class Temp{
                 $rule='/\$([a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*)/i';
                 if(Inc::Contain("$",$matches[1])){
                     preg_match($rule,$matches[1],$matche);
-                    $tempurl=preg_replace($rule,$this->tplvars[$matche[1]],$matches[1]);
+                    $tempurl=preg_replace($rule,(string)($this->tplvars[$matche[1]] ?? ''),$matches[1]);
                     return file_get_contents($tempurl);
                 }else{
                     return file_get_contents($this->tempdir."$matches[1]");

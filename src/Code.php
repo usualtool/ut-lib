@@ -81,7 +81,10 @@ class Code{
     private function Output(){
         header('Content-type:image/png');
         imagepng($this->img);
-        imagedestroy($this->img);
+        if(is_resource($this->img)){
+            imagedestroy($this->img);
+        }
+        $this->img=null;
     }
     /**
     * 生成接口

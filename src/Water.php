@@ -88,7 +88,10 @@ class Water{
             $color=imagecolorallocate($back,$fontcolor['r'],$fontcolor['g'],$fontcolor['b']);
             imagettftext($back,$fontsize,0,$posX,$posY,$color,OPEN_ROOT."/assets/fonts/web-font.ttf",iconv("utf-8","utf-8",$content));
             imagejpeg($back,$photo);
-            imagedestroy($back);
+            if(is_resource($back)){
+                imagedestroy($back);
+            }
+            $back=null;
         }elseif($type=="image"){
             $back=$ground_im;
             $water=$water_im;
@@ -96,8 +99,15 @@ class Water{
             $w_h=imagesy($water);
             imagecopy($back,$water,$posX,$posY,0,0,$w_w,$w_h);
             imagejpeg($back,$photo);
-            imagedestroy($back);
-            imagedestroy($water);
+            
+            if(is_resource($back)){
+                imagedestroy($back);
+            }
+            $back=null;
+            if(is_resource($water)){
+                imagedestroy($water);
+            }
+            $water=null;
         }
     }
     public static function Hex2Rgb($hex){
