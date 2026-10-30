@@ -283,15 +283,7 @@ class Inc{
      * @return bool
      */
     public static function InstallDev(){
-        if(is_dir('install-dev')){
-            if(file_exists(OPEN_ROOT."/install-dev/usualtool.lock")){
-                return true;
-            }else{
-                return false;
-            }
-        }else{
-            return true;
-        }
+        return !is_dir(OPEN_ROOT."/install-dev") || file_exists(OPEN_ROOT."/install-dev/usualtool.lock");
     }
     /**
      * 引用插件
