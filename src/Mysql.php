@@ -116,7 +116,7 @@ class Mysql{
      * @param string $where 条件
      * @param string $order 排序
      * @param string|int $limit 数目
-     * @param array $param 绑定参数
+     * @param array $param 预处理值数组
      * @return array
      */
     public static function QueryData($table,$field='',$where='',$order='',$limit='',$param=array()){
@@ -151,14 +151,14 @@ class Mysql{
                 $curnum=mysqli_num_rows($query);
                 $querynum=empty($limit) ? $curnum : self::QueryNum("select ".$field." from ".$table." ".$where);
                 $querydata=array();
-                $xu=0;
+                $n=0;
                 while($rows=mysqli_fetch_array($query,MYSQLI_ASSOC)){
-                    $xu=$xu+1;
+                    $n=$n+1;
                     $count=count($rows);
                     for($i=0;$i<$count;$i++){
                         unset($rows[$i]);
                     }
-                    $rows['xu']=$xu;
+                    $rows["_n_"]=$n;
                     array_push($querydata,$rows);
                 }
                 return array("querydata"=>$querydata,"curnum"=>$curnum,"querynum"=>$querynum);
@@ -174,7 +174,7 @@ class Mysql{
      * 添加数据
      * @param string $table 表名
      * @param array $data 字段/数据数组
-     * @param array $param 参数
+     * @param array $param 预处理值数组
      * @return bool
      */
     public static function InsertData($table,$data,$param=array()){
@@ -198,6 +198,8 @@ class Mysql{
             foreach(array_values($data) as $v){
                 if($bind && $v==="?"){
                     $values[]="?";
+                }elseif(is_null($v)){
+                    $values[]="NULL";
                 }else{
                     $values[]="'".mysqli_real_escape_string($db,(string)$v)."'";
                 }
@@ -209,7 +211,7 @@ class Mysql{
             }
             $query=$db->query($sql);
             if($query){
-                return mysqli_insert_id($db);
+                return mysqli_insert_id($db) ?: true;
             }else{
                 return false;
             }
@@ -223,7 +225,7 @@ class Mysql{
      * @param string $table 表名
      * @param array $data 字段/数据数组
      * @param string $where 条件
-     * @param array $param 参数
+     * @param array $param 预处理值数组
      * @return bool
      */
     public static function UpdateData($table,$data,$where,$param=array()){
@@ -282,7 +284,7 @@ class Mysql{
      * 删除数据
      * @param string $table 表名
      * @param string $where 条件
-     * @param array $param 参数
+     * @param array $param 预处理值数组
      * @return bool
      */
     public static function DelData($table,$where,$param=array()){
@@ -314,8 +316,7 @@ class Mysql{
      * 复制数据
      * @param string $table 表名
      * @param string $where 条件
-     * @param array $param 参数
-     * @param string $primary 主键
+     * @param array $param 预处理值数组
      * @return bool
      */
     public static function CopyData($table, $where = '', $param = array()) {
@@ -399,13 +400,16 @@ class Mysql{
 	/**
 	 * 执行预处理
 	 * @param string $sql SQL语句
-	 * @param array $param 绑定参数
+     * @param array $param 预处理值数组
 	 * @return array|bool|int
 	 */
     public static function RunYu($sql,$param=[]){
         $db=self::GetMysql();
-        $trimmed=ltrim(strtoupper($sql));
-        $yutype=explode(' ',$trimmed)[0];
+        $trimmed=ltrim($sql);
+        $yutype=preg_match('/^([A-Za-z]+)/',$trimmed,$m) ? strtoupper($m[1]) : "";
+        if($yutype=="WITH"){
+            $yutype=preg_match('/\)\s*(insert|update|delete|replace)\b/i',$trimmed) ? "INSERT" : "SELECT";
+        }
         try{
             if($yutype=="SELECT"){
                 $islimit=(bool) preg_match('/\bLIMIT\b/i',$sql);
@@ -425,7 +429,7 @@ class Mysql{
                     self::YuBindParam($stmt, $param);
                 }
                 if(!$stmt->execute()){
-                    self::YuPoolDrop($stmt);
+                    self::YuPoolPut($stmt);
                     return ["querydata" => [], "curnum" => 0, "querynum" => 0];
                 }
                 $result = $stmt->get_result();
@@ -434,9 +438,9 @@ class Mysql{
                     return ["querydata" => [], "curnum" => 0, "querynum" => 0];
                 }
                 $querydata = [];
-                $xu = 0;
+                $n = 0;
                 while($row = $result->fetch_assoc()){
-                    $row['xu'] = ++$xu;
+                    $row["_n_"] = ++$n;
                     $querydata[] = $row;
                 }
                 $result->free();
@@ -452,14 +456,12 @@ class Mysql{
                             if(!empty($param)){
                                 self::YuBindParam($countstmt, $param);
                             }
-                            if(!$countstmt->execute()){
-                                self::YuPoolDrop($countstmt);
-                            }else{
+                            if($countstmt->execute()){
                                 $countstmt->bind_result($total);
                                 $countstmt->fetch();
                                 $countstmt->free_result();
-                                self::YuPoolPut($countstmt);
                             }
+                            self::YuPoolPut($countstmt);
                         }
                     }
                 }
@@ -477,8 +479,11 @@ class Mysql{
                     self::YuBindParam($stmt, $param);
                 }
                 if(!$stmt->execute()){
-                    self::YuPoolDrop($stmt);
+                    self::YuPoolPut($stmt);
                     return false;
+                }
+                if($stmt->field_count>0){
+                    $stmt->store_result();
                 }
                 self::YuPoolPut($stmt);
                 if($yutype=="INSERT"){
@@ -488,7 +493,12 @@ class Mysql{
                 }
             }
         }catch(\Throwable $e){
-            self::YuPoolClear();
+            $yucode=(int)$e->getCode();
+            if($yucode===2006 || $yucode===2013){
+                self::YuPoolClear();
+            }else{
+                self::YuPoolBusyClear();
+            }
             error_log("[UT-SQL] ".$e->getMessage());
             if($yutype=="SELECT"){
                 return ["querydata" => [], "curnum" => 0, "querynum" => 0];
@@ -498,7 +508,7 @@ class Mysql{
     }
     public static function YuCountSql($sql){
         $sql = rtrim($sql," \t\n\r;");
-        $sql = preg_replace('/\s+LIMIT\s+\d+(?:\s*,\s*\d+)?\s*$/i','',$sql);
+        $sql = preg_replace('/\s+LIMIT\s+\d+(?:\s*,\s*\d+|\s+OFFSET\s+\d+)?\s*$/i','',$sql);
         return "SELECT COUNT(*) AS total FROM ($sql) AS __count_wrapper";
     }
     private static $YuPool=array();
@@ -571,6 +581,14 @@ class Mysql{
         self::$YuPool=array();
         self::$YuBusy=array();
     }
+    private static function YuPoolBusyClear(){
+        foreach(self::$YuBusy as $item){
+            if($item[1] instanceof \mysqli_stmt){
+                $item[1]->close();
+            }
+        }
+        self::$YuBusy=array();
+    }
     public static function YuBindParam($stmt,$params){
         if(empty($params)) return;
         $types='';
@@ -635,7 +653,7 @@ class Mysql{
                 }
                 break;
             case "limit":
-                if(preg_match('/^\s*\d+(\s*,\s*\d+)?\s*$/',$value)){
+                if(preg_match('/^\s*\d+(\s*,\s*\d+|\s+offset\s+\d+)?\s*$/i',$value)){
                     return $value;
                 }
                 break;
