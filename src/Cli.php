@@ -574,9 +574,17 @@ class Cli{
                             }
                         }
                     }
+                    $installsql=Inc::StrSubstr("<installsql><![CDATA[","]]></installsql>",$cfg);
+                    if($installsql!='0' && !Data::RunSql($installsql)){
+                        echo "小程序".$appid."安装失败\r\n";
+                        exit();
+                    }
                 }
-                $setrows=Data::ModTable("cms_routine") ? Data::QueryData("cms_routine")["querydata"] : array();
-                $set=isset($setrows[0]) ? $setrows[0] : array();
+                $set=array();
+                if(Data::ModTable("cms_routine")){
+                    $setrows=Data::QueryData("cms_routine")["querydata"];
+                    $set=isset($setrows[0]) ? $setrows[0] : array();
+                }
                 if(strpos($appid,'-al-')!==false){
                     $rteid=trim((string)($set["alrteid"] ?? ""));
                 }elseif(strpos($appid,'-tt-')!==false){
@@ -601,40 +609,39 @@ class Cli{
                         }
                     }
                 }
-                if($useid===""){
-                    Inc::DelDir($appdir);
-                    echo "app未配置密钥，请前往接口ut-api/app创建密钥!\r\n";
-                    exit();
-                }
-                if(strpos($appid,'-bd-')!==false){
-                    $pfile=$appdir."/project.swan.json";
-                }else{
-                    $pfile=$appdir."/project.config.json";
-                }
-                if(strpos($appid,'-al-')===false && is_file($pfile)){
-                    $pdata=json_decode(file_get_contents($pfile),true);
-                    $pdata['appid']=$rteid!=="" ? $rteid : $useid;
-                    $pdata['projectname']=$config["APPNAME"];
-                    file_put_contents($pfile,json_encode($pdata,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));
-                }
-                $appjson=$appdir."/app.json";
-                if(is_file($appjson)){
-                    $adata=json_decode(file_get_contents($appjson),true);
-                    if(strpos($appid,'-al-')!==false){
-                        $adata['window']['defaultTitle']=$config["APPNAME"];
+                if($useid!==""){
+                    if(strpos($appid,'-bd-')!==false){
+                        $pfile=$appdir."/project.swan.json";
                     }else{
-                        $adata['window']['navigationBarTitleText']=$config["APPNAME"];
+                        $pfile=$appdir."/project.config.json";
                     }
-                    file_put_contents($appjson,json_encode($adata,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));
-                }
-                $appjs=$appdir."/app.js";
-                if(is_file($appjs)){
-                    $jdata=file_get_contents($appjs);
-                    $jdata=str_replace("ut-weburl",str_replace('/','\/',$config["APPURL"]),$jdata);
-                    $jdata=str_replace("ut-appid",$useid,$jdata);
-                    $jdata=str_replace("ut-secret",$appsecret,$jdata);
-                    $jdata=str_replace("ut-appname",addslashes($config["APPNAME"]),$jdata);
-                    file_put_contents($appjs,$jdata);
+                    if(strpos($appid,'-al-')===false && is_file($pfile)){
+                        $pdata=json_decode(file_get_contents($pfile),true);
+                        $pdata['appid']=$rteid!=="" ? $rteid : $useid;
+                        $pdata['projectname']=$config["APPNAME"];
+                        file_put_contents($pfile,json_encode($pdata,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));
+                    }
+                    $appjson=$appdir."/app.json";
+                    if(is_file($appjson)){
+                        $adata=json_decode(file_get_contents($appjson),true);
+                        if(strpos($appid,'-al-')!==false){
+                            $adata['window']['defaultTitle']=$config["APPNAME"];
+                        }else{
+                            $adata['window']['navigationBarTitleText']=$config["APPNAME"];
+                        }
+                        file_put_contents($appjson,json_encode($adata,JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT));
+                    }
+                    $appjs=$appdir."/app.js";
+                    if(is_file($appjs)){
+                        $jdata=file_get_contents($appjs);
+                        $jdata=str_replace("ut-weburl",str_replace('/','\/',$config["APPURL"]),$jdata);
+                        $jdata=str_replace("ut-appid",$useid,$jdata);
+                        $jdata=str_replace("ut-secret",$appsecret,$jdata);
+                        $jdata=str_replace("ut-appname",addslashes($config["APPNAME"]),$jdata);
+                        file_put_contents($appjs,$jdata);
+                    }
+                }else{
+                    echo "未检测到可用的平台appid与密钥，跳过占位符替换，保留模板占位符直接打包\r\n";
                 }
                 $zipname=Inc::GetRandomString(16).".zip";
                 $zipfile=$downdir."/".$zipname;
