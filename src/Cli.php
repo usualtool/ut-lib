@@ -521,8 +521,8 @@ class Cli{
                 }
             }elseif($type=="app"){
                 echo"小程序安装打包中...\r\n";
-                $tempdir=APP_ROOT."/modules/routine/temp";
-                $downdir=APP_ROOT."/modules/routine/down";
+                $tempdir=UTF_ROOT."/update/temp";
+                $downdir=UTF_ROOT."/update/down";
                 if(!is_dir($tempdir)){ Inc::MakeDir($tempdir); }
                 if(!is_dir($downdir)){ Inc::MakeDir($downdir); }
                 if($number!="-2"){
@@ -545,7 +545,7 @@ class Cli{
                             $zip->close();
                             unlink($downdir."/".$filename);
                         }else{
-                            echo "routine/down目录775权限不足\r\n";
+                            echo "update/down目录775权限不足\r\n";
                             exit();
                         }
                     }else{
@@ -641,7 +641,6 @@ class Cli{
                 if(Cli::ZipDir($appdir,$zipfile)){
                     echo "成功打包小程序：".$appid."\r\n";
                     echo "包路径：".str_replace("\\","/",$zipfile)."\r\n";
-                    echo "下载地址：".$config["APPURL"].Route::Link("routine","routine_zip","do=get&z=".$zipname,"admin")."\r\n";
                 }else{
                     echo "打包失败，请检查目录权限\r\n";
                 }
