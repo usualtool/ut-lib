@@ -994,8 +994,10 @@ class Cli{
         echo"php usualtool workerman [start/reload/stop/restart] [host] ... workerman命令\r\n";
         echo"php usualtool test [name] [1/2] 生成模型测试骨架\r\n";
         echo"php usualtool test [name] 1 参数级断言\r\n";
-        echo"php usualtool test [name] 2 静态方法断言\r\n";
-        echo"php usualtool test 只生成能测的方法，其余跳过并列出原因\r\n";
+        echo"php usualtool test [name] 2 真库结果断言\r\n";
+        echo"php usualtool test [name] [1/2] --force 覆盖已有测试文件\r\n";
+        echo"php usualtool test [name] [1/2] --db=pgsql 指定测试运行的数据库驱动\r\n";
+        echo"php usualtool test 生成测试方法\r\n";
     }
     /**
      * 获取当前UT版本号

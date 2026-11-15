@@ -22,22 +22,36 @@ class Test{
      */
     public static function Run($array){
         $module=isset($array[2]) ? strtolower(trim($array[2])) : "";
-        $mode=isset($array[3]) ? (int)$array[3] : 0;
+        $mode=0;
+        foreach(array_slice($array,3) as $a){
+            if(strpos((string)$a,"--")===0){ continue; }
+            $mode=(int)$a;
+            break;
+        }
         $force=in_array("--force",$array,true);
+        $db="";
+        foreach($array as $a){
+            if(strpos((string)$a,"--db=")===0){ $db=strtolower(trim(substr((string)$a,5))); }
+        }
+        if($db!=="" && !preg_match('/^[a-z0-9_]+$/',$db)){
+            echo"驱动名只能包含字母、数字与下划线：".$db."\r\n";
+            return 1;
+        }
         if($module===""){
-            echo"用法：php usualtool test [模块名] [1/2] [--force]\r\n";
+            echo"  用法：php usualtool test [模块名] [1/2] [--force] [--db=驱动]\r\n";
             echo"  只对能写出有效断言的方法生成，其余跳过并列出原因\r\n";
-            echo"  1 = 新方式（Share\\Data + MockDb，参数级断言）\r\n";
-            echo"  2 = 老方式（Data:: 静态方法，真库结果断言）\r\n";
+            echo"  1 = 参数级断言（Share\\Data+MockDb）\r\n";
+            echo"  2 = 真库结果断言（Data::静态方法）\r\n";
             echo"  省略 1/2 时按模型能否注入自动选择\r\n";
             echo"  实参只认默认值、类型声明与 @test-args 注解，其余跳过\r\n";
+            echo"  --db=pgsql 让生成物开头固定切到该驱动，省略则用 .ut.config 的 DBTYPE\r\n";
             return 1;
         }
         if(!in_array($mode,array(0,1,2),true)){
             echo"方式只能是 1 或 2\r\n";
             return 1;
         }
-        return self::Make($module,$mode,$force);
+        return self::Make($module,$mode,$force,$db);
     }
     /**
      * 为指定模块的模型生成测试文件
@@ -46,7 +60,7 @@ class Test{
      * @param bool $force 覆盖已有文件、允许空骨架
      * @return int 0=已生成 1=未生成
      */
-    public static function Make($module,$mode=0,$force=false){
+    public static function Make($module,$mode=0,$force=false,$db=""){
         $moddir=APP_ROOT."/modules/".$module;
         if(!is_dir($moddir)){
             echo"模块不存在：".$moddir."\r\n";
@@ -205,7 +219,7 @@ TPL;
  */
 require dirname(__DIR__).'/autoload.php';
 
-@USES@
+@DB@@USES@
 
 $pass = 0; $fail = 0;
 $hasDb = true;
@@ -228,9 +242,11 @@ TPL;
 echo "\n结果：通过 $pass 条，失败 $fail 条\n";
 exit($fail === 0 ? 0 : 1);
 TPL;
+        $dbline=($db==="" || !$hasCall) ? "" : '\\usualtool\\Lib\\Data::GetDb("'.$db.'");'."\n\n";
+        if($db!=="" && !$hasCall){ echo"该模块只生成参数级断言，--db 未写入（MockDb 不连库）\r\n"; }
         $code=str_replace(
-            array("@MODULE@","@TIME@","@MODEDESC@","@USES@","@SETUP@"),
-            array($module,date("Y-m-d H:i:s"),$modeDesc,implode("\n",$uses),implode("\n",$setup)),
+            array("@MODULE@","@TIME@","@MODEDESC@","@DB@","@USES@","@SETUP@"),
+            array($module,date("Y-m-d H:i:s"),$modeDesc,$dbline,implode("\n",$uses),implode("\n",$setup)),
             $head
         );
         $code.="\n\n".implode("\n\n",$lines)."\n\n".$foot;
