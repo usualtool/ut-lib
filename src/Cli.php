@@ -4,6 +4,7 @@ use usualtool\Lib\Inc;
 use usualtool\Lib\Data;
 use usualtool\Lib\Route;
 use usualtool\Lib\Cache;
+use usualtool\Lib\Test;
 use usualtool\Lib\Ai;
 /**
        * --------------------------------------------------------       
@@ -946,6 +947,14 @@ class Cli{
         closedir($handle);
     }
     /**
+     * 生成模型测试骨架
+     * @param array $array
+     * @return void
+     */
+    public static function Test($array){
+        exit(Test::Run($array));
+    }
+    /**
      * 帮助
      * @return string
      */
@@ -983,6 +992,10 @@ class Cli{
         echo"php usualtool swoole [name] [host] [port] ... swoole协程命令\r\n";
         echo"php usualtool kafka [host] [topic] kafka命令\r\n";
         echo"php usualtool workerman [start/reload/stop/restart] [host] ... workerman命令\r\n";
+        echo"php usualtool test [name] [1/2] 生成模型测试骨架\r\n";
+        echo"php usualtool test [name] 1 参数级断言\r\n";
+        echo"php usualtool test [name] 2 静态方法断言\r\n";
+        echo"php usualtool test 只生成能测的方法，其余跳过并列出原因\r\n";
     }
     /**
      * 获取当前UT版本号
