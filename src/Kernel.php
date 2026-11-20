@@ -243,6 +243,7 @@ class Kernel{
         self::$body=null;
         self::$vars=array();
         Temp::$repeat=true;
+        Inc::ResetConfig();
         error_clear_last();
         /**
          * 注入超级全局

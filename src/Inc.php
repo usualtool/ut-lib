@@ -18,25 +18,7 @@ use usualtool\Lib\HtmlFilter;
  */
 class Inc{
     /**
-     * 获取UT配置
-     * 其他格式注释(\/\/.(\s|.*))
-     * @return array
-     */
-    public static function GetConfig(){
-        $string = file_get_contents(UTF_ROOT."/.ut.config");
-        $string = preg_replace("/(\/\*(\s|.)*?\*\/)|(#(\s*)?(.*))/",'',$string);
-        $string = preg_replace('#\s+#',PHP_EOL,$string);
-        $arr = explode(PHP_EOL,$string);
-        $arr = array_filter($arr);
-        $config = array();
-        foreach($arr as $k=>$v){
-            $arrs = explode('=',$v);
-            $config[$arrs[0]] = isset($arrs[1]) ? trim($arrs[1]) : "";
-        } 
-        return $config;
-    }
-    /**
-     * 取配置
+     * 读取配置
      * @param string|null $key 键名
      * @return mixed
      */
@@ -46,6 +28,35 @@ class Inc{
             return $config;
         }
         return isset($config[$key]) ? $config[$key] : null;
+    }
+    private static $cfg=null;
+    /**
+     * 解析并缓存全局配置
+     * @return array
+     */
+    public static function GetConfig(){
+        if(self::$cfg!==null){
+            return self::$cfg;
+        }
+        $string = file_get_contents(UTF_ROOT."/.ut.config");
+        $string = preg_replace("/(\/\*(\s|.)*?\*\/)|(#(\s*)?(.*))/",'',$string);
+        $string = preg_replace('#\s+#',PHP_EOL,$string);
+        $arr = explode(PHP_EOL,$string);
+        $arr = array_filter($arr);
+        $config = array();
+        foreach($arr as $k=>$v){
+            $arrs = explode('=',$v);
+            $config[$arrs[0]] = isset($arrs[1]) ? trim($arrs[1]) : "";
+        }
+        self::$cfg=$config;
+        return $config;
+    }
+    /**
+     * 清空配置缓存
+     * @return void
+     */
+    public static function ResetConfig(){
+        self::$cfg=null;
     }
     /**
      * 跳转链接
