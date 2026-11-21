@@ -182,6 +182,10 @@ class Cli{
             if($type=="module"){
                 echo"模块安装中...\r\n";
                 if($number!="-2"){
+                    if(empty($config["ADMIN_POWER_PAGE"])){
+                        echo"安装官方模块必须配置守卫(ADMIN_POWER_PAGE)防范越权风险。你可执行 php usualtool install develop 安装可视包或自配守卫\r\n";
+                        exit();
+                    }
                     $down="";
                     if($number=="-1"){
                         $down=Inc::Auth("module-".$name);
