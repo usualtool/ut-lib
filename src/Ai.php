@@ -160,7 +160,7 @@ class Ai{
      */
     public static function EnvMissing($env){
         $need=array("UPSTREAM_BASE_URL","UPSTREAM_API_KEY","INDEX_MODEL","ALLOWED_MODELS");
-        if(!empty($env["ENABLE_THINKING"])){
+        if(!empty($env["KNOWLEDGE_ENABLED"])){
             $need=array_merge($need,array("KNOWLEDGE_BASE_URL","KNOWLEDGE_API_KEY","KNOWLEDGE_BASE_IDS","KNOWLEDGE_MODEL"));
         }
         $missing=array();
