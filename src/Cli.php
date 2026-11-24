@@ -440,9 +440,37 @@ class Cli{
                 }
             }elseif($type=="develop"){
                 echo "可视包安装中...\r\n";
-                $res=Inc::SaveFile("https://codeload.github.com/usualtool/develop/zip/refs/heads/main",UTF_ROOT."/update","develop.zip",1);
-                clearstatcache();
-                if(!empty($res) && is_file(UTF_ROOT."/update/develop.zip") && filesize(UTF_ROOT."/update/develop.zip")>0){
+                $sources=array(
+                    "https://raw.atomgit.com/hhtoll/develop/archive/refs/heads/main.zip",
+                    "https://codeload.github.com/usualtool/develop/zip/refs/heads/main"
+                );
+                $res=array();
+                foreach($sources as $source){
+                    $saved=Inc::SaveFile($source,UTF_ROOT."/update","develop.zip",1);
+                    if(empty($saved)){
+                        continue;
+                    }
+                    clearstatcache();
+                    $zipFile=UTF_ROOT."/update/develop.zip";
+                    if(!is_file($zipFile) || filesize($zipFile)<1000){
+                        continue;
+                    }
+                    $fp=@fopen($zipFile,"rb");
+                    if(!$fp){
+                        continue;
+                    }
+                    $head=fread($fp,4);
+                    fclose($fp);
+                    if($head!=="PK\x03\x04" && $head!=="PK\x05\x06"){
+                        continue;
+                    }
+                    $res=$saved;
+                    break;
+                }
+                if(empty($res)){
+                    @unlink(UTF_ROOT."/update/develop.zip");
+                }
+                if(!empty($res)){
                     $zip=new \ZipArchive;
                     if($zip->open(UTF_ROOT."/update/develop.zip")!==TRUE){
                         echo "update目录775权限不足\r\n";

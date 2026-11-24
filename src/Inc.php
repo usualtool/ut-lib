@@ -840,7 +840,7 @@ class Inc{
             return false;
         }
         $size = strlen($content);
-        $fp2 = @fopen($save_dir . $filename, 'a');
+        $fp2 = @fopen($save_dir . $filename, 'w');
         if(!$fp2){
             return false;
         }
@@ -852,7 +852,7 @@ class Inc{
         'save_path' => $save_dir . $filename,
         'file_size' => $size
         );
-    } 
+    }
     /**
      * 检测文件夹权限
      * @param string $path 文件夹路径
