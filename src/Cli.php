@@ -602,14 +602,12 @@ class Cli{
                 $rteid=preg_match('/^[A-Za-z0-9_\-]{1,100}$/',$rteid) ? $rteid : "";
                 $host=trim((string)parse_url($config["APPURL"],PHP_URL_HOST));
                 $useid="";
-                $appsecret="";
                 if(Data::ModTable("cms_api_app")){
                     foreach(array($rteid,$host) as $cand){
                         if($cand===""){ continue; }
-                        $row=Data::QueryData("cms_api_app","appsecret","appid=? and status=1","","1",array($cand));
+                        $row=Data::QueryData("cms_api_app","appid","appid=? and status=1","","1",array($cand));
                         if($row["querynum"]>0){
                             $useid=$cand;
-                            $appsecret=$row["querydata"][0]["appsecret"];
                             break;
                         }
                     }
@@ -641,7 +639,7 @@ class Cli{
                         $jdata=file_get_contents($appjs);
                         $jdata=str_replace("ut-weburl",str_replace('/','\/',$config["APPURL"]),$jdata);
                         $jdata=str_replace("ut-appid",$useid,$jdata);
-                        $jdata=str_replace("ut-secret",$appsecret,$jdata);
+                        $jdata=str_replace("ut-secret","",$jdata);
                         $jdata=str_replace("ut-appname",addslashes($config["APPNAME"]),$jdata);
                         file_put_contents($appjs,$jdata);
                     }
