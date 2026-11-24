@@ -441,7 +441,8 @@ class Cli{
             }elseif($type=="develop"){
                 echo "可视包安装中...\r\n";
                 $res=Inc::SaveFile("https://codeload.github.com/usualtool/develop/zip/refs/heads/main",UTF_ROOT."/update","develop.zip",1);
-                if(!empty($res)){
+                clearstatcache();
+                if(!empty($res) && is_file(UTF_ROOT."/update/develop.zip") && filesize(UTF_ROOT."/update/develop.zip")>0){
                     $zip=new \ZipArchive;
                     if($zip->open(UTF_ROOT."/update/develop.zip")!==TRUE){
                         echo "update目录775权限不足\r\n";
@@ -639,7 +640,6 @@ class Cli{
                         $jdata=file_get_contents($appjs);
                         $jdata=str_replace("ut-weburl",str_replace('/','\/',$config["APPURL"]),$jdata);
                         $jdata=str_replace("ut-appid",$useid,$jdata);
-                        $jdata=str_replace("ut-secret","",$jdata);
                         $jdata=str_replace("ut-appname",addslashes($config["APPNAME"]),$jdata);
                         file_put_contents($appjs,$jdata);
                     }
