@@ -693,7 +693,6 @@ class Cli{
      * @return string
      */
     public static function Swoole($array){
-        require_once UTF_ROOT.'/autoload.php';
         if(count($array)>2){
             $server=$array[2];
             $host=$array[3];
@@ -701,9 +700,9 @@ class Cli{
             if($server=="http"){
                 $server=new \usualtool\Swoole\Http($host,$port);
             }elseif($server=="proxy"){
-                $server=new \usualtool\Swoole\Proxy($host,$port,$array[5]);
+                $server=new \usualtool\Swoole\Proxy($host,$port,isset($array[5]) && $array[5]!=='' ? $array[5] : 'php-fpm.sock');
             }elseif($server=="websocket"){
-                $server=new \usualtool\Swoole\Websocket($host,$port,$array[5]);
+                $server=new \usualtool\Swoole\Websocket($host,$port,isset($array[5]) && $array[5]!=='' ? $array[5] : 'only');
             }elseif($server=="pool"){
                 $server=new \usualtool\Swoole\Pool($host,$port);
             }elseif($server=="queue"){
@@ -721,19 +720,28 @@ class Cli{
      * @return string
      */
     public static function Workerman($array){
-        require_once UTF_ROOT.'/autoload.php';
-        $server=$array[2];
-            if($server=="start"){
-                if(in_array('-d',$array)){
-                    $server=new \usualtool\Workerman\Start($array[4]);
-                }else{
-                    $server=new \usualtool\Workerman\Start($array[3]);
-                } 
-            }elseif($server=="restart"){
-                $server=new \usualtool\Workerman\Start($array[3]);
+        if(count($array)>2){
+            $server=$array[2];
+            $host=isset($array[3]) ? $array[3] : '';
+            $port=isset($array[4]) ? $array[4] : '';
+            $GLOBALS['argv']=array_merge(array($array[0],in_array($server,array("start","stop","restart","status","reload")) ? $server : "start"),in_array('-d',$array) && in_array($server,array("start","restart")) ? array('-d') : array());
+            if($server=="start" || $server=="restart"){
+                $server=new \usualtool\Workerman\Start($host,$port);
             }elseif($server=="stop" || $server=="status" || $server=="reload"){
                 $server=new \usualtool\Workerman\Start();
+            }elseif($server=="http"){
+                (new \usualtool\Workerman\Http($host,$port))->Run();
+            }elseif($server=="queue"){
+                (new \usualtool\Workerman\Queue($host,$port))->Run();
+            }elseif($server=="tcp"){
+                (new \usualtool\Workerman\Tcp($host,$port,isset($array[5]) ? $array[5] : ''))->Run();
+            }elseif($server=="proxy"){
+                (new \usualtool\Workerman\Proxy($host,$port,isset($array[5]) && $array[5]!=='' ? $array[5] : 'php-fpm.sock'))->Run();
             }
+        }else{
+            echo"Workerman命令错误\r\n";
+            echo"该命令在安装ut-workerman依赖后生效\r\n";
+        }
     }
     /**
      * Composer自动化工作
