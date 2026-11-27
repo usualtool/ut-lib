@@ -20,7 +20,7 @@ class Mssql{
     private static $MssqlDb=null;
     /**
      * 连接Mssql
-     */    
+     */
     public static function GetMssql(){
         if(self::$MssqlDb){
             return self::$MssqlDb;
@@ -31,11 +31,22 @@ class Mssql{
         }
         $config=Inc::GetConfig();
         $host=empty($config["MSSQL_PORT"]) ? $config["MSSQL_HOST"] : $config["MSSQL_HOST"].",".$config["MSSQL_PORT"];
-        self::$MssqlDb=@sqlsrv_connect($host,array(
+        $param=array(
             'UID'=>$config["MSSQL_USER"],
             'PWD'=>$config["MSSQL_PASS"],
-            'Database'=>$config["MSSQL_DB"])
+            'Database'=>$config["MSSQL_DB"]
         );
+        self::$MssqlDb=@sqlsrv_connect($host,$param);
+        if(!self::$MssqlDb){
+            foreach((array)sqlsrv_errors() as $err){
+                $msg=isset($err['message']) ? $err['message'] : '';
+                if(stripos($msg,'SSL Provider')!==false || stripos($msg,'certificate')!==false || stripos($msg,'encryption')!==false || (isset($err['code']) && $err['code']==-2146893019)){
+                    $param['TrustServerCertificate']=true;
+                    self::$MssqlDb=@sqlsrv_connect($host,$param);
+                    break;
+                }
+            }
+        }
         if(!self::$MssqlDb){
             error_log("[UT-SQL] ".print_r(sqlsrv_errors(),true));
             self::$MssqlDb=null;
